@@ -259,7 +259,7 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
         in_front_matter = False
         first_line_after_front_matter = 0
         for idx, line in enumerate(lines):
-            match = re.match(r"(#\+):[\s]*(.*)", line)
+            match = re.match(r"(?:#\+)(.*?):[\s]*(.*)", line)
             if match is not None:
                 front_matter[match[1]] = match[2]
                 first_line_after_front_matter = idx + 1
