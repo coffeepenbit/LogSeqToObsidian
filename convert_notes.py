@@ -261,11 +261,18 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
         for idx, line in enumerate(lines):
             match = re.match(r"(?:#\+)(.*?):[\s]*(.*)", line)
             if match is not None:
-                front_matter[match[1]] = match[2]
+                match1 = match[1]
+                if match1 == "alias":
+                    match1 = "aliases"
+
+                    if match[2]:
+                        # TODO remove filename from aliases
+                        pass
+                front_matter[match1] = match[2]
                 first_line_after_front_matter = idx + 1
             else:
                 break
-        if bool(front_matter):
+        if front_matter:
             # import ipdb; ipdb.set_trace()
             newlines.append("---\n")
             for key in front_matter:
