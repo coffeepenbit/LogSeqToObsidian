@@ -11,12 +11,10 @@ logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(message)s")
 # Global state isn't always bad mmkay
 ORIGINAL_LINE = ""
 INSIDE_CODE_BLOCK = False
+REMOVE_LINES = []
 
 
 def main():
-    global ORIGINAL_LINE
-    global INSIDE_CODE_BLOCK
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--logseq", help="base directory of logseq graph", required=True)
@@ -246,7 +244,7 @@ def format_markdown_file(args, fpath, new_to_old_paths, old_pagenames_to_new_pat
 
 
 def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
-    global ORIGINAL_LINE, INSIDE_CODE_BLOCK
+    global ORIGINAL_LINE, INSIDE_CODE_BLOCK, REMOVE_LINES
 
     logging.info(f"Formatting org file: ({fpath=})")
 
@@ -296,7 +294,7 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
                     newlines.append(key + ": " + front_matter[key] + "\n")
             newlines.append("---\n")
 
-        for line in lines[first_line_after_front_matter:]:
+        for index, line in enumerate(lines[first_line_after_front_matter:]):
             ORIGINAL_LINE = line
 
             # Update global state if this is the end of a code block
@@ -318,10 +316,10 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
                 line = unindent_once(line)
 
             # Add a line above the start of a code block in a list
-            lines = prepend_code_block(line)
-            if len(lines) > 0:
-                newlines.append(lines[0])
-                line = lines[1]
+            lines_prepended = prepend_code_block(line)
+            if len(lines_prepended) > 0:
+                newlines.append(lines_prepended[0])
+                line = lines_prepended[1]
 
             # Update links and tags
             line = update_links_and_tags(line, old_pagenames_to_new_paths, fpath, args)
@@ -348,7 +346,10 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
             line = add_bullet_before_indented_image(line)
 
             # Convert to md header
-            line = org_to_md_header(line)
+            line = org_to_md_header(index, line, lines[first_line_after_front_matter:])
+
+            # Remove block-level properties
+            line = remove_org_properties(line)
 
             newlines.append(line)
     with open(fpath, "w", encoding="utf-8") as f:
@@ -715,15 +716,49 @@ def unencode_filenames_for_links(old_str: str) -> str:
     return new_str
 
 
-def org_to_md_header(line: str) -> str:
+def org_to_md_header(index: int, line: str, lines: list[str]) -> str:
+    global REMOVE_LINES
+    header = False
     if match := re.match(r"^(\*+)( .+)", line):
-        line = f"{"#" * len(match[1])}{match[2]}"
-        logging.debug(f"org_to_md_header: {line}")
+        try:
+            if ":PROPERTIES:" in lines[index+1]:
+                potential_remove_lines = [1]
+                properties_index = 2
+                for line_ in lines[index+properties_index:]:
+                    if re.match(":[A-Za-z\-_]*:", line_):
+                        potential_remove_lines.append(properties_index)
+                        if ":heading: true" in line_:
+                            header = True
+
+                        if ":END:" in lines[index+properties_index]:
+                            REMOVE_LINES.extend(potential_remove_lines)
+                        else:
+                            properties_index += 1
+                    else:
+                        break
+        except IndexError:
+            pass
+
+        if header:
+            line = f"{"#" * len(match[1])}{match[2]}"
+            line = "\n" + line
+            logging.debug(f"org_to_md_header: {line}")
+        else:
+            line = match[2][1:]
 
         if not line.endswith("\n"):
             line += "\n"
 
     return line
+
+
+def remove_org_properties(line: str) -> str:
+    properties = [":PROPERTIES:\n", ":heading: true\n", ":heading: false\n", ":END:\n"]
+    if any(line == prop for prop in properties):
+        line = ""
+
+    return line
+
 
 
 if __name__ == "__main__":
