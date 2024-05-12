@@ -5,7 +5,7 @@ import re
 import shutil
 import typing
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(message)s")
 
 
 # Global state isn't always bad mmkay
@@ -346,6 +346,9 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
 
             # Make sure images are indented correctly
             line = add_bullet_before_indented_image(line)
+
+            # Convert to md header
+            line = convert_org_header_to_md(line)
 
             newlines.append(line)
     with open(fpath, "w", encoding="utf-8") as f:
@@ -710,6 +713,14 @@ def unencode_filenames_for_links(old_str: str) -> str:
             new_str = new_str.replace(escape_str,replace_map[escape_str])
 
     return new_str
+
+
+def convert_org_header_to_md(line: str) -> str:
+    line = re.sub(r"^\*+", "#", line)
+    logging.debug(f"org_to_md_header: {line}")
+
+    return line
+
 
 if __name__ == "__main__":
     main()
