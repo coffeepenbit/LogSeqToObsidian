@@ -348,7 +348,7 @@ def format_org_file(args, fpath, new_to_old_paths, old_pagenames_to_new_paths):
             line = add_bullet_before_indented_image(line)
 
             # Convert to md header
-            line = convert_org_header_to_md(line)
+            line = org_to_md_header(line)
 
             newlines.append(line)
     with open(fpath, "w", encoding="utf-8") as f:
@@ -715,9 +715,13 @@ def unencode_filenames_for_links(old_str: str) -> str:
     return new_str
 
 
-def convert_org_header_to_md(line: str) -> str:
-    line = re.sub(r"^\*+", "#", line)
-    logging.debug(f"org_to_md_header: {line}")
+def org_to_md_header(line: str) -> str:
+    if match := re.match(r"^(\*+)( .+)", line):
+        line = f"{"#" * len(match[1])}{match[2]}"
+        logging.debug(f"org_to_md_header: {line}")
+
+        if not line.endswith("\n"):
+            line += "\n"
 
     return line
 
