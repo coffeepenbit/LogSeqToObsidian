@@ -721,6 +721,12 @@ def org_to_md_header(index: int, line: str, lines: list[str]) -> str:
     header = False
     if match := re.match(r"^(\*+)( .+)", line):
         try:
+            # Headers are identified by:
+            # :PROPERTIES:
+            # ...
+            # :header: true
+            # ...
+            # :END:
             if ":PROPERTIES:" in lines[index+1]:
                 potential_remove_lines = [1]
                 properties_index = 2
